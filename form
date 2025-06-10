@@ -1,0 +1,349 @@
+import React, { useState, useEffect } from 'react';
+import { Plus, Trash2, TrendingUp, Calendar, Package, AlertCircle } from 'lucide-react';
+
+const CleaningSupplyTracker = () => {
+  const [supplies, setSupplies] = useState([]);
+  const [usageHistory, setUsageHistory] = useState([]);
+  const [newSupply, setNewSupply] = useState({
+    name: '',
+    brand: '',
+    size: '',
+    purchaseDate: '',
+    cost: ''
+  });
+  const [usageEntry, setUsageEntry] = useState({
+    supplyId: '',
+    date: '',
+    percentUsed: ''
+  });
+
+  // Initialize with sample data
+  useEffect(() => {
+    const sampleSupplies = [
+      {
+        id: 1,
+        name: 'All-Purpose Cleaner',
+        brand: 'Method',
+        size: '28 oz',
+        purchaseDate: '2024-05-15',
+        cost: 4.99,
+        currentLevel: 65
+      },
+      {
+        id: 2,
+        name: 'Dish Soap',
+        brand: 'Dawn',
+        size: '24 oz',
+        purchaseDate: '2024-05-10',
+        cost: 3.49,
+        currentLevel: 30
+      }
+    ];
+
+    const sampleUsage = [
+      { id: 1, supplyId: 1, date: '2024-05-20', percentUsed: 15 },
+      { id: 2, supplyId: 1, date: '2024-05-27', percentUsed: 20 },
+      { id: 3, supplyId: 2, date: '2024-05-18', percentUsed: 25 },
+      { id: 4, supplyId: 2, date: '2024-05-25', percentUsed: 20 },
+      { id: 5, supplyId: 2, date: '2024-06-01', percentUsed: 25 }
+    ];
+
+    setSupplies(sampleSupplies);
+    setUsageHistory(sampleUsage);
+  }, []);
+
+  const addSupply = () => {
+    if (!newSupply.name || !newSupply.purchaseDate) return;
+
+    const supply = {
+      id: Date.now(),
+      ...newSupply,
+      cost: parseFloat(newSupply.cost) || 0,
+      currentLevel: 100
+    };
+
+    setSupplies([...supplies, supply]);
+    setNewSupply({ name: '', brand: '', size: '', purchaseDate: '', cost: '' });
+  };
+
+  const addUsageEntry = () => {
+    if (!usageEntry.supplyId || !usageEntry.date || !usageEntry.percentUsed) return;
+
+    const entry = {
+      id: Date.now(),
+      supplyId: parseInt(usageEntry.supplyId),
+      date: usageEntry.date,
+      percentUsed: parseInt(usageEntry.percentUsed)
+    };
+
+    setUsageHistory([...usageHistory, entry]);
+
+    // Update current level
+    setSupplies(supplies.map(supply => {
+      if (supply.id === entry.supplyId) {
+        return {
+          ...supply,
+          currentLevel: Math.max(0, supply.currentLevel - entry.percentUsed)
+        };
+      }
+      return supply;
+    }));
+
+    setUsageEntry({ supplyId: '', date: '', percentUsed: '' });
+  };
+
+  const calculateUsageRate = (supplyId) => {
+    const entries = usageHistory.filter(entry => entry.supplyId === supplyId);
+    if (entries.length < 2) return null;
+
+    entries.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    const totalUsage = entries.reduce((sum, entry) => sum + entry.percentUsed, 0);
+    const firstDate = new Date(entries[0].date);
+    const lastDate = new Date(entries[entries.length - 1].date);
+    const daysDiff = (lastDate - firstDate) / (1000 * 60 * 60 * 24);
+    
+    if (daysDiff === 0) return null;
+    
+    return (totalUsage / daysDiff).toFixed(2);
+  };
+
+  const predictRunOutDate = (supply) => {
+    const usageRate = calculateUsageRate(supply.id);
+    if (!usageRate || usageRate <= 0) return null;
+
+    const daysRemaining = supply.currentLevel / parseFloat(usageRate);
+    const runOutDate = new Date();
+    runOutDate.setDate(runOutDate.getDate() + Math.ceil(daysRemaining));
+    
+    return runOutDate.toLocaleDateString();
+  };
+
+  const getSupplyStatus = (supply) => {
+    if (supply.currentLevel <= 20) return 'critical';
+    if (supply.currentLevel <= 40) return 'low';
+    return 'good';
+  };
+
+  const deleteSupply = (id) => {
+    setSupplies(supplies.filter(supply => supply.id !== id));
+    setUsageHistory(usageHistory.filter(entry => entry.supplyId !== id));
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto p-6 bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+      <div className="bg-white rounded-lg shadow-lg p-8">
+        <h1 className="text-3xl font-bold text-gray-800 mb-8 flex items-center gap-3">
+          <Package className="text-blue-600" />
+          Cleaning Supply Usage Tracker
+        </h1>
+
+        {/* Add New Supply */}
+        <div className="bg-gray-50 rounded-lg p-6 mb-8">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Plus className="text-green-600" />
+            Add New Supply
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <input
+              type="text"
+              placeholder="Supply Name"
+              value={newSupply.name}
+              onChange={(e) => setNewSupply({...newSupply, name: e.target.value})}
+              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              type="text"
+              placeholder="Brand"
+              value={newSupply.brand}
+              onChange={(e) => setNewSupply({...newSupply, brand: e.target.value})}
+              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              type="text"
+              placeholder="Size"
+              value={newSupply.size}
+              onChange={(e) => setNewSupply({...newSupply, size: e.target.value})}
+              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              type="date"
+              value={newSupply.purchaseDate}
+              onChange={(e) => setNewSupply({...newSupply, purchaseDate: e.target.value})}
+              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              type="number"
+              placeholder="Cost ($)"
+              value={newSupply.cost}
+              onChange={(e) => setNewSupply({...newSupply, cost: e.target.value})}
+              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <button
+            onClick={addSupply}
+            className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+          >
+            <Plus size={20} />
+            Add Supply
+          </button>
+        </div>
+
+        {/* Supply Inventory */}
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Package className="text-blue-600" />
+            Current Inventory
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {supplies.map(supply => {
+              const status = getSupplyStatus(supply);
+              const usageRate = calculateUsageRate(supply.id);
+              const predictedDate = predictRunOutDate(supply);
+              
+              return (
+                <div key={supply.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                  <div className="flex justify-between items-start mb-3">
+                    <h3 className="font-semibold text-gray-800">{supply.name}</h3>
+                    <button
+                      onClick={() => deleteSupply(supply.id)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-2 text-sm text-gray-600">
+                    <p><strong>Brand:</strong> {supply.brand}</p>
+                    <p><strong>Size:</strong> {supply.size}</p>
+                    <p><strong>Purchased:</strong> {supply.purchaseDate}</p>
+                    <p><strong>Cost:</strong> ${supply.cost}</p>
+                  </div>
+
+                  {/* Usage Level Bar */}
+                  <div className="mt-4">
+                    <div className="flex justify-between text-sm mb-1">
+                      <span>Current Level</span>
+                      <span>{supply.currentLevel}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-3">
+                      <div
+                        className={`h-3 rounded-full transition-all ${
+                          status === 'critical' ? 'bg-red-500' :
+                          status === 'low' ? 'bg-yellow-500' : 'bg-green-500'
+                        }`}
+                        style={{ width: `${supply.currentLevel}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {/* Status Indicator */}
+                  <div className={`mt-3 px-3 py-1 rounded-full text-xs font-semibold ${
+                    status === 'critical' ? 'bg-red-100 text-red-800' :
+                    status === 'low' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-green-100 text-green-800'
+                  }`}>
+                    {status === 'critical' ? 'Critical - Reorder Now!' :
+                     status === 'low' ? 'Low - Consider Reordering' :
+                     'Good Stock Level'}
+                  </div>
+
+                  {/* Analytics */}
+                  {usageRate && (
+                    <div className="mt-3 p-2 bg-blue-50 rounded text-sm">
+                      <p><strong>Usage Rate:</strong> {usageRate}% per day</p>
+                      {predictedDate && (
+                        <p><strong>Predicted Empty:</strong> {predictedDate}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Add Usage Entry */}
+        <div className="bg-gray-50 rounded-lg p-6 mb-8">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <TrendingUp className="text-purple-600" />
+            Record Usage
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <select
+              value={usageEntry.supplyId}
+              onChange={(e) => setUsageEntry({...usageEntry, supplyId: e.target.value})}
+              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select Supply</option>
+              {supplies.map(supply => (
+                <option key={supply.id} value={supply.id}>
+                  {supply.name} - {supply.brand}
+                </option>
+              ))}
+            </select>
+            <input
+              type="date"
+              value={usageEntry.date}
+              onChange={(e) => setUsageEntry({...usageEntry, date: e.target.value})}
+              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              type="number"
+              placeholder="% Used"
+              value={usageEntry.percentUsed}
+              onChange={(e) => setUsageEntry({...usageEntry, percentUsed: e.target.value})}
+              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <button
+            onClick={addUsageEntry}
+            className="mt-4 bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+          >
+            <Plus size={20} />
+            Record Usage
+          </button>
+        </div>
+
+        {/* Insights */}
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-6">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <AlertCircle className="text-blue-600" />
+            Smart Insights
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white p-4 rounded-lg">
+              <h3 className="font-semibold mb-2">Items Needing Attention</h3>
+              <div className="space-y-2">
+                {supplies.filter(s => getSupplyStatus(s) !== 'good').map(supply => (
+                  <div key={supply.id} className="flex justify-between items-center">
+                    <span className="text-sm">{supply.name}</span>
+                    <span className={`text-xs px-2 py-1 rounded ${
+                      getSupplyStatus(supply) === 'critical' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {supply.currentLevel}%
+                    </span>
+                  </div>
+                ))}
+                {supplies.filter(s => getSupplyStatus(s) !== 'good').length === 0 && (
+                  <p className="text-sm text-gray-600">All supplies are well-stocked!</p>
+                )}
+              </div>
+            </div>
+            <div className="bg-white p-4 rounded-lg">
+              <h3 className="font-semibold mb-2">Usage Summary</h3>
+              <div className="space-y-2 text-sm">
+                <p><strong>Total Supplies:</strong> {supplies.length}</p>
+                <p><strong>Critical Level:</strong> {supplies.filter(s => getSupplyStatus(s) === 'critical').length}</p>
+                <p><strong>Low Level:</strong> {supplies.filter(s => getSupplyStatus(s) === 'low').length}</p>
+                <p><strong>Usage Entries:</strong> {usageHistory.length}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default CleaningSupplyTracker;
